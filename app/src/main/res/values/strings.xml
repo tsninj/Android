@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Translator app</string>
+    <string name="time_to_memorize">Time to memorize!</string>
+    <string name="time_to_review_words">Үгээ харах цаг боллоо\n</string>
+</resources>
