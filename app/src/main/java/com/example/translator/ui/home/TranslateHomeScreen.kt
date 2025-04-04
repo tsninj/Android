@@ -20,7 +20,9 @@ import com.example.translator.InventoryTopAppBar
 import com.example.translator.ui.navigation.NavigationDestination
 import com.example.translator.ui.theme.InventoryTheme
 import com.example.translator.ui.home.HomeViewModel
+import com.example.translator.data.Word
 import kotlinx.coroutines.flow.collectLatest
+import com.example.translator.ui.config.Option
 
 object HomeDestination : NavigationDestination {
     override val route = "nuur-huudas"
@@ -33,7 +35,8 @@ fun HomeScreen(
     navigateToItemUpdate: (Int) -> Unit,
     navigateToConfig: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    option: Option
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val uiState by viewModel.uiState.collectAsState()
@@ -51,7 +54,7 @@ fun HomeScreen(
     ) { innerPadding ->
         HomeBody(
             contentPadding = innerPadding,
-            uiState = uiState,
+            words : List<Word>,
             onAddClick = navigateToItemEntry,
             onUpdateClick = { navigateToItemUpdate(uiState.currentWord?.id ?: 0) },
             onDeleteClick = { viewModel.confirmDelete() },
@@ -87,12 +90,15 @@ fun HomeBody(
     ) {
         Spacer(Modifier.height(80.dp))
 
-        HomeWordSection(
-            uiState = uiState,
-            onRevealMongolian = onRevealMongolian,
-            onLongPressWord = onLongPressWord,
-            modifier = Modifier.weight(1f)
-        )
+        if(currentWord != null){
+            when(option){
+                Option.BOTH -> HomeWordSection(
+                    uiState = uiState,
+                    onRevealMongolian = onRevealMongolian,
+                    onLongPressWord = onLongPressWord,
+                    modifier = Modifier.weight(1f)
+            }
+        }
 
         HomeEditButton(
             onAddClick = onAddClick,
@@ -151,30 +157,9 @@ fun HomeWordSection(
                 fontSize = 36.sp
             )
         }
-
         Spacer(modifier = Modifier.height(45.dp))
 
-        Box(
-            modifier = Modifier
-                .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(16.dp)
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { onRevealMongolian() },
-                        onLongPress = { onLongPressWord() }
-                    )
-                }
-        ) {
-            val mongolianText = if (uiState.shouldShowTranslation) uiState.currentWord?.mongolia ?: "" else "*****"
-            Text(
-                text = mongolianText,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.secondary,
-                fontSize = 36.sp
-            )
-        }
+
     }
 }
 

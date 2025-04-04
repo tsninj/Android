@@ -36,7 +36,11 @@ class ConfigRepository(
             }
         }
         .map { preferences ->
-            preferences[CONFIG_LAYOUT] ?: 1
+            when(preferences[CONFIG_LAYOUT]){
+                1 -> 1
+                2 -> 2
+                else -> 3
+            }
         }
     suspend fun saveSettingPreference(configLayout: Int) {
         dataStore.edit { preferences ->
