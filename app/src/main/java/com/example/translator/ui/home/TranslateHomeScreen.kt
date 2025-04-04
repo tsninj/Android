@@ -3,7 +3,7 @@ package com.example.translator.ui.home
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,17 +12,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.translator.InventoryTopAppBar
-import com.example.translator.ui.navigation.NavigationDestination
-import com.example.translator.ui.theme.InventoryTheme
-import com.example.translator.ui.home.HomeViewModel
 import com.example.translator.data.Word
-import kotlinx.coroutines.flow.collectLatest
 import com.example.translator.ui.config.Option
+import com.example.translator.ui.navigation.NavigationDestination
 
 object HomeDestination : NavigationDestination {
     override val route = "nuur-huudas"
@@ -36,10 +32,17 @@ fun HomeScreen(
     navigateToConfig: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
+    words: List<Word>,
+    currentIndex: Int,
     option: Option
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val uiState by viewModel.uiState.collectAsState()
+    val currentWord = words.getOrNull(currentIndex)
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val hasWords = words.isNotEmpty()
+
+    // Toggle for revealing the hidden language
+    var isHiddenRevealed by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -53,30 +56,41 @@ fun HomeScreen(
         }
     ) { innerPadding ->
         HomeBody(
+            currentWord = currentWord,
+            showDeleteDialog = showDeleteDialog,
+            hasWords = hasWords,
             contentPadding = innerPadding,
-            words : List<Word>,
+            option = option,
+            isHiddenRevealed = isHiddenRevealed,
             onAddClick = navigateToItemEntry,
-            onUpdateClick = { navigateToItemUpdate(uiState.currentWord?.id ?: 0) },
-            onDeleteClick = { viewModel.confirmDelete() },
+            onUpdate = { currentWord?.let { navigateToItemUpdate(it.id) } },
+            onDeleteClick = { showDeleteDialog = true },
             onPrevClick = { viewModel.showPreviousWord() },
             onNextClick = { viewModel.showNextWord() },
-            onRevealMongolian = { viewModel.toggleTranslationVisibility() },
-            onLongPressWord = { navigateToItemUpdate(uiState.currentWord?.id ?: 0) },
-            onConfirmDelete = { viewModel.deleteCurrentWord() },
-            onDismissDeleteDialog = { viewModel.dismissDeleteDialog() }
+            onRevealHidden = { isHiddenRevealed = !isHiddenRevealed },
+            onLongPressWord = { currentWord?.let { navigateToItemUpdate(it.id) } },
+            onConfirmDelete = {
+                viewModel.deleteCurrentWord()
+                showDeleteDialog = false
+            },
+            onDismissDeleteDialog = { showDeleteDialog = false }
         )
     }
 }
 
 @Composable
 fun HomeBody(
-    uiState: UiState,
+    currentWord: Word?,
+    showDeleteDialog: Boolean,
+    hasWords: Boolean,
+    option: Option,
+    isHiddenRevealed: Boolean,
     onAddClick: () -> Unit,
-    onUpdateClick: () -> Unit,
+    onUpdate: (Word) -> Unit,
     onDeleteClick: () -> Unit,
     onPrevClick: () -> Unit,
     onNextClick: () -> Unit,
-    onRevealMongolian: () -> Unit,
+    onRevealHidden: () -> Unit,
     onLongPressWord: () -> Unit,
     onConfirmDelete: () -> Unit,
     onDismissDeleteDialog: () -> Unit,
@@ -90,35 +104,86 @@ fun HomeBody(
     ) {
         Spacer(Modifier.height(80.dp))
 
-        if(currentWord != null){
-            when(option){
-                Option.BOTH -> HomeWordSection(
-                    uiState = uiState,
-                    onRevealMongolian = onRevealMongolian,
-                    onLongPressWord = onLongPressWord,
-                    modifier = Modifier.weight(1f)
+        currentWord?.let {
+            when (option) {
+                Option.FOREIGN -> {
+                    HomeWordSection(
+                        text = it.english,
+                        modifier = Modifier.weight(1f),
+                        onClick = {},
+                        onLongPressWord = { onUpdate(it) }
+                    )
+                    HomeWordSection(
+                        text = if (isHiddenRevealed) it.mongolia else "Дарна уу",
+                        modifier = Modifier.weight(1f),
+                        onClick = { if (!isHiddenRevealed) isHiddenRevealed = true },
+                        onLongPressWord = { onUpdate(it) }
+                    )
+                }
+                Option.MONGOLIAN -> {
+                    HomeWordSection(
+                        text = it.mongolia,
+                        modifier = Modifier.weight(1f),
+                        onClick = {},
+                        onLongPressWord = { onUpdate(it) }
+                    )
+                    HomeWordSection(
+                        text = if (isHiddenRevealed) it.english else "Дарна уу",
+                        modifier = Modifier.weight(1f),
+                        onClick = { if (!isHiddenRevealed) isHiddenRevealed = true },
+                        onLongPressWord = { onUpdate(it) }
+                    )
+                }
+                Option.BOTH -> {
+                    HomeWordSection(
+                        text = it.english,
+                        modifier = Modifier.weight(1f),
+                        onClick = {},
+                        onLongPressWord = { onUpdate(it) }
+                    )
+                    HomeWordSection(
+                        text = it.mongolia,
+                        modifier = Modifier.weight(1f),
+                        onClick = {},
+                        onLongPressWord = { onUpdate(it) }
+                    )
+                }
             }
+        } ?: HomeWordSection(
+            text = "Үг байхгүй байна.",
+            modifier = Modifier.weight(1f),
+            onClick = {},
+            onLongPressWord = {}
+        )
+
+        Button(
+            onClick = onRevealHidden,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(bottom = 12.dp)
+        ) {
+            Text("Орчуулгыг харуулах")
         }
 
         HomeEditButton(
             onAddClick = onAddClick,
-            onUpdateClick = onUpdateClick,
+            onUpdateClick = { currentWord?.let(onUpdate) },
             onDeleteClick = onDeleteClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            enabled = uiState.hasWords
+            enabled = hasWords
         )
 
         HomeTransButton(
             onPrevClick = onPrevClick,
             onNextClick = onNextClick,
             modifier = Modifier.padding(16.dp),
-            enabled = uiState.hasWords
+            enabled = hasWords
         )
     }
 
-    if (uiState.showDeleteDialog) {
+    if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = onDismissDeleteDialog,
             confirmButton = {
@@ -134,10 +199,10 @@ fun HomeBody(
 
 @Composable
 fun HomeWordSection(
-    uiState: UiState,
-    onRevealMongolian: () -> Unit,
-    onLongPressWord: () -> Unit,
-    modifier: Modifier = Modifier
+    text: String,
+    modifier: Modifier,
+    onClick: () -> Unit = {},
+    onLongPressWord: () -> Unit
 ) {
     Column(
         modifier = modifier.padding(horizontal = 20.dp),
@@ -149,17 +214,20 @@ fun HomeWordSection(
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(16.dp)
                 .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongPressWord
+                )
         ) {
             Text(
-                text = "${uiState.currentWord?.english ?: ""}",
+                text = text,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.secondary,
-                fontSize = 36.sp
+                fontSize = 36.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
         Spacer(modifier = Modifier.height(45.dp))
-
-
     }
 }
 
@@ -172,7 +240,8 @@ fun HomeEditButton(
     enabled: Boolean
 ) {
     Row(
-        modifier = modifier, horizontalArrangement = Arrangement.Center
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center
     ) {
         Button(
             onClick = onAddClick,
